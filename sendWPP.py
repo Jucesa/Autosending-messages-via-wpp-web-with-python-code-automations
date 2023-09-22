@@ -13,37 +13,33 @@ sheet = gc.open('spreadsheetdata').sheet1
 class message():
 
     def getDataFromFile():
-        #getting the path where the csv file is located
-        path = r"C://Users//jc160//OneDrive//Área de Trabalho//projeto de Programa, Contra evasão escolar//spreadsheetdata - Página1.csv"
-
-        #updating the data from the csv file
-        dataUpdate = sheet.get_all_values()
-        df = pd.DataFrame(dataUpdate[1:],columns=dataUpdate[0])
-
-        df.to_csv(path,index=False)
-        print(f'CSV file updated at: {path}')
-
-        #reading the data provided
-        contatos = pd.read_csv(path)
-        print(contatos) 
-
-        #declaring a dict object to store the data from the csv file
+        #declaring a dict object to store the data from the sheet
         data_dict = {}
+
+        #receiving the data from the sheet
+        dataUpdate = sheet.get_all_values()
+        contatos = pd.DataFrame(dataUpdate[1:],columns=dataUpdate[0])
+        print(contatos)
 
         # organizing the data for each student
         for i, aluno in enumerate(contatos['Aluno']):
             responsavel = str(contatos.loc[i, 'Responsável'])
-            numero = contatos.loc[i, 'Número']
+            numero = str(contatos.loc[i, 'Número'])
             enviada = contatos.loc[i,'Enviada']
+            mensagem = f'Olá, {responsavel}, a Escola EREM Manoel Bacelar gostaria de saber os possíveis motivos da evasão do(a) aluno(a): {aluno}. Por favor, nos informe o quanto antes, agradecimentos, a direção.'
 
-            mensagem = str((f'Olá, {responsavel}, a Escola EREM Manoel Bacelar gostaria de saber os possíveis motivos da evasão do(a) aluno(a): {aluno}. Por favor, nos informe o quanto antes, agradecimentos, a direção.'))
+            if enviada == 'SIM':
+                enviada = True
+            else:
+                enviada = False
 
             data = {'aluno':aluno,
                         'responsavel':responsavel,
                         'numero': numero,
                         'mensagem': mensagem,
                         'enviada': enviada}
-                
+            print(enviada)
+            print(type(enviada))
             data_dict.setdefault(aluno,data)
 
         return data_dict
@@ -61,15 +57,21 @@ class message():
     def send(link,sheetRow):
 
         navegador.get(link)
-        
+         # Verify if the element of the send button is availabe on the screen before sending the message 
         while len(navegador.find_elements(By.XPATH,'//*[@id="main"]/footer/div[1]/div/span[2]/div/div[2]/div[1]/div/div/p/span')) < 1:
             time.sleep(1)
 
         pyautogui.press('enter')
 
-        sheet.update(f'D{sheetRow}',True)
-
-        time.sleep(3)
+        time.sleep(1)
+        # Verify if the message was sent by looking for the clock element
+        while len(navegador.find_elements(By.XPATH,'//*[@id="main"]/div[2]/div/div[2]/div[3]/div[19]/div/div/div/div[1]/div[1]/div/div[2]/div/div/span/svg')) >= 1:
+            time.sleep(1)
+        else:
+            sucesso = True
+        
+        if sucesso:
+            sheet.update(f'D{sheetRow}','SIM')
 
 data_dict = message.getDataFromFile()
 navegador = webdriver.Chrome()
@@ -77,11 +79,8 @@ navegador = webdriver.Chrome()
 for row,aluno in enumerate(data_dict.keys(),start=2):
 
     # Verifying if a message was already sent
-    if data_dict[aluno]['enviada'] == False:
-
+    if  data_dict[aluno]['enviada']:
+        print(f'Mensagem já enviada para {data_dict[aluno]["responsavel"]}')
+    else:
         message.send(message.createLink(data_dict,aluno),row)
         print(f'Enviando mensagem para {data_dict[aluno]["responsavel"]}')
-
-    else:
-
-        print(f'Mensagem já enviada para {data_dict[aluno]["responsavel"]}')
